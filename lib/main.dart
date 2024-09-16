@@ -249,7 +249,7 @@ class _AdminAppState extends State<AdminApp> {
                             'evening': eveningController.text,
                             'night': nightController.text,
                           };
-
+                          
                           if (expiryDate != null) {
                             updateClientData(index, links, expiryDate!);
                             try {
@@ -262,6 +262,10 @@ class _AdminAppState extends State<AdminApp> {
                                 'evening': eveningController.text,
                                 'night': nightController.text,
                                 'expiry_date': expiryDate,
+                                'morningempty':morningController.text.isEmpty,
+                                'afternoonempty':afternoonController.text.isEmpty,
+                                'eveningempty':eveningController.text.isEmpty,
+                                'nightempty':nightController.text.isEmpty
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text("Data saved")));
