@@ -287,10 +287,30 @@ class _AdminAppState extends State<AdminApp> {
       body: ListView.builder(
         itemCount: clientsData.length,
         itemBuilder: (context, index) {
+           // Parse the expiry date from the stored data
+        DateTime? expiryDate = clientsData[index]['expiryDate'] != null
+            ? DateTime.parse(clientsData[index]['expiryDate'])
+            : null;
+
+        // Calculate the days remaining if expiryDate exists
+        String expiryStatus;
+        if (expiryDate != null) {
+          int daysRemaining = expiryDate.difference(DateTime.now()).inDays;
+
+          if (daysRemaining < 0) {
+            expiryStatus = 'Audio expired';
+          } else if (daysRemaining == 0) {
+            expiryStatus = 'Audio expires today';
+          } else {
+            expiryStatus = 'Days left: $daysRemaining';
+          }
+        } else {
+          expiryStatus = 'No expiry date set';
+        }
           return Card(
             child: ListTile(
               title: Text('Name: ${clientsData[index]['name']}'),
-              subtitle: Text('User ID: ${clientsData[index]['userId']}'),
+              subtitle: Text('User ID: ${clientsData[index]['userId']}\n$expiryStatus'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () {
