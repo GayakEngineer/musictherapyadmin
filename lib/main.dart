@@ -138,6 +138,7 @@ class _AdminAppState extends State<AdminApp> {
                 String clientName = nameController.text;
                 if (clientName.isNotEmpty) {
                   saveClientData(clientName, userId);
+                  userIDs=userId;
                   Navigator.of(context).pop();
                 }
               },
@@ -346,10 +347,12 @@ class _AdminAppState extends State<AdminApp> {
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () {
                   _showDeleteConfirmationDialog(index);
+                  
                 },
               ),
               onTap: () {
                 _showClientDetailsPage(index);
+                userIDs=clientsData[index]['userId'];
               },
             ),
           );
