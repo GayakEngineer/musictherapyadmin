@@ -1,7 +1,7 @@
-import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart'; // For date formatting
 
 void main() {
   runApp(MyApp());
@@ -23,7 +23,6 @@ class AdminApp extends StatefulWidget {
 
 class _AdminAppState extends State<AdminApp> {
   List<Map<String, dynamic>> clientsData = [];
-  Set<String> usedUserIds = {}; // Track used user IDs
 
   @override
   void initState() {
@@ -40,8 +39,6 @@ class _AdminAppState extends State<AdminApp> {
         clientsData = storedData
             .map((item) => Map<String, dynamic>.from(json.decode(item)))
             .toList();
-        usedUserIds =
-            clientsData.map((item) => item['userId'] as String).toSet();
       });
     }
   }
@@ -53,28 +50,37 @@ class _AdminAppState extends State<AdminApp> {
       clientsData.add({
         'name': name,
         'userId': userId,
+        'links': {
+          'morning': '',
+          'afternoon': '',
+          'evening': '',
+          'night': ''
+        },
+        'expiryDate': null,
       });
-      usedUserIds.add(userId); // Track the new user ID as used
       List<String> clientDataList =
           clientsData.map((item) => json.encode(item)).toList();
       prefs.setStringList('clientsData', clientDataList);
     });
   }
 
-  // Generate a unique user ID
-  String _generateUniqueUserId() {
-    String userId;
-    do {
-      userId = Random().nextInt(10000).toString().padLeft(4, '0');
-    } while (usedUserIds.contains(userId));
-    usedUserIds.add(userId); // Add the newly generated ID to used IDs
-    return userId;
+  // Update client data in SharedPreferences
+  Future<void> updateClientData(
+      int index, Map<String, String> links, DateTime expiryDate) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      clientsData[index]['links'] = links;
+      clientsData[index]['expiryDate'] = expiryDate.toIso8601String();
+      List<String> clientDataList =
+          clientsData.map((item) => json.encode(item)).toList();
+      prefs.setStringList('clientsData', clientDataList);
+    });
   }
 
   // Show dialog to add a new client
   void _showAddClientDialog() {
     TextEditingController nameController = TextEditingController();
-    String generatedUserId = _generateUniqueUserId();
+    TextEditingController userIdController = TextEditingController();
 
     showDialog(
       context: context,
@@ -88,9 +94,9 @@ class _AdminAppState extends State<AdminApp> {
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Client Name'),
               ),
-              Text(
-                'Generated User ID: $generatedUserId',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              TextField(
+                controller: userIdController,
+                decoration: const InputDecoration(labelText: 'User ID'),
               ),
             ],
           ),
@@ -103,15 +109,109 @@ class _AdminAppState extends State<AdminApp> {
             ),
             TextButton(
               onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  String clientName = nameController.text;
-                  saveClientData(clientName, generatedUserId);
+                String clientName = nameController.text;
+                String userId = userIdController.text;
+                if (clientName.isNotEmpty && userId.isNotEmpty) {
+                  saveClientData(clientName, userId);
                   Navigator.of(context).pop();
                 }
               },
               child: const Text('Save'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  // Show page for entering client's links and expiry date
+  void _showClientDetailsPage(int index) {
+    TextEditingController morningController = TextEditingController();
+    TextEditingController afternoonController = TextEditingController();
+    TextEditingController eveningController = TextEditingController();
+    TextEditingController nightController = TextEditingController();
+    DateTime? expiryDate;
+
+    showModalBottomSheet(
+      isScrollControlled: true, // Allows the modal sheet to expand when needed
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom, // Adjust for the keyboard
+              ),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: morningController,
+                        decoration:
+                            const InputDecoration(labelText: 'Morning Link'),
+                      ),
+                      TextField(
+                        controller: afternoonController,
+                        decoration:
+                            const InputDecoration(labelText: 'Afternoon Link'),
+                      ),
+                      TextField(
+                        controller: eveningController,
+                        decoration:
+                            const InputDecoration(labelText: 'Evening Link'),
+                      ),
+                      TextField(
+                        controller: nightController,
+                        decoration: const InputDecoration(labelText: 'Night Link'),
+                      ),
+                      SizedBox(height: 10),
+                      ListTile(
+                        title: Text(expiryDate == null
+                            ? 'Select Expiry Date'
+                            : DateFormat('yyyy-MM-dd').format(expiryDate!)),
+                        trailing: Icon(Icons.calendar_today),
+                        onTap: () async {
+                          DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2100),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              expiryDate = picked;
+                            });
+                          }
+                        },
+                      ),
+                      ElevatedButton(
+                        onPressed: () {
+                          Map<String, String> links = {
+                            'morning': morningController.text,
+                            'afternoon': afternoonController.text,
+                            'evening': eveningController.text,
+                            'night': nightController.text,
+                          };
+                          if (expiryDate != null) {
+                            updateClientData(index, links, expiryDate!);
+                            Navigator.of(context).pop();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text("Please select an expiry date."),
+                            ));
+                          }
+                        },
+                        child: Text('Save'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -129,21 +229,9 @@ class _AdminAppState extends State<AdminApp> {
           return Card(
             child: ListTile(
               title: Text('Name: ${clientsData[index]['name']}'),
-              subtitle: Text(
-                'User ID: ${clientsData[index]['userId']}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              subtitle: Text('User ID: ${clientsData[index]['userId']}'),
               onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => ClientDetailsPage(
-                    clientData: clientsData[index],
-                    onUpdate: (updatedData) {
-                      setState(() {
-                        clientsData[index] = updatedData;
-                      });
-                    },
-                  ),
-                ));
+                _showClientDetailsPage(index);
               },
             ),
           );
@@ -152,72 +240,6 @@ class _AdminAppState extends State<AdminApp> {
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddClientDialog,
         child: const Icon(Icons.add),
-      ),
-    );
-  }
-}
-
-class ClientDetailsPage extends StatefulWidget {
-  final Map<String, dynamic> clientData;
-  final Function(Map<String, dynamic>) onUpdate;
-
-  const ClientDetailsPage({super.key, required this.clientData, required this.onUpdate});
-
-  @override
-  _ClientDetailsPageState createState() => _ClientDetailsPageState();
-}
-
-class _ClientDetailsPageState extends State<ClientDetailsPage> {
-  TextEditingController additionalInfoController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.clientData.containsKey('additionalInfo')) {
-      additionalInfoController.text = widget.clientData['additionalInfo'];
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Client Details'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Text(
-              'Client Name: ${widget.clientData['name']}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'User ID: ${widget.clientData['userId']}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: additionalInfoController,
-              decoration: const InputDecoration(
-                labelText: 'Additional Info',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 4,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () {
-                widget.clientData['additionalInfo'] =
-                    additionalInfoController.text;
-                widget.onUpdate(widget.clientData);
-                Navigator.of(context).pop();
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
       ),
     );
   }
