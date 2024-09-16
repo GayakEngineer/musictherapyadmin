@@ -100,7 +100,8 @@ class _AdminAppState extends State<AdminApp> {
   String generateUniqueUserId() {
     String userId;
     do {
-      userId = (_random.nextInt(9000) + 1000).toString(); // Generates a 4-digit number
+      userId = (_random.nextInt(9000) + 1000)
+          .toString(); // Generates a 4-digit number
     } while (clientsData.any((client) => client['userId'] == userId));
     return userId;
   }
@@ -108,6 +109,7 @@ class _AdminAppState extends State<AdminApp> {
   // Show dialog to add a new client with auto-generated user ID
   void _showAddClientDialog() {
     TextEditingController nameController = TextEditingController();
+    TextEditingController uidController = TextEditingController();
     String userId = generateUniqueUserId();
 
     showDialog(
@@ -123,6 +125,11 @@ class _AdminAppState extends State<AdminApp> {
                 decoration: const InputDecoration(labelText: 'Client Name'),
               ),
               const SizedBox(height: 10),
+              TextField(
+                controller: uidController,
+                decoration: const InputDecoration(labelText: 'Custom User ID (emergency)'),
+              ),
+              const SizedBox(height: 10),
               Text('Generated User ID: $userId'),
             ],
           ),
@@ -136,9 +143,13 @@ class _AdminAppState extends State<AdminApp> {
             TextButton(
               onPressed: () {
                 String clientName = nameController.text;
+                String uid=uidController.text;
                 if (clientName.isNotEmpty) {
+                  if (uid.isNotEmpty) {
+                    userId=uid;
+                  }
                   saveClientData(clientName, userId);
-                  userIDs=userId;
+                  userIDs = userId;
                   Navigator.of(context).pop();
                 }
               },
@@ -159,7 +170,8 @@ class _AdminAppState extends State<AdminApp> {
     DateTime? expiryDate;
 
     // Pre-fill the data if it exists for the client
-    Map<String, String> storedLinks = Map<String, String>.from(clientsData[index]['links']);
+    Map<String, String> storedLinks =
+        Map<String, String>.from(clientsData[index]['links']);
     morningController.text = storedLinks['morning'] ?? '';
     afternoonController.text = storedLinks['afternoon'] ?? '';
     eveningController.text = storedLinks['evening'] ?? '';
@@ -213,7 +225,6 @@ class _AdminAppState extends State<AdminApp> {
                             ? 'Select Expiry Date'
                             : DateFormat('yyyy-MM-dd').format(expiryDate!)),
                         trailing: const Icon(Icons.calendar_today),
-                        
                         onTap: () async {
                           DateTime? picked = await showDatePicker(
                             context: context,
@@ -247,14 +258,13 @@ class _AdminAppState extends State<AdminApp> {
                                   .doc(userIDs)
                                   .set({
                                 'morning': morningController.text,
-                            'afternoon': afternoonController.text,
-                            'evening': eveningController.text,
-                            'night': nightController.text,
+                                'afternoon': afternoonController.text,
+                                'evening': eveningController.text,
+                                'night': nightController.text,
                                 'expiry_date': expiryDate,
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(content: Text("Data saved")));
-                              
                             } catch (e) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
@@ -298,8 +308,17 @@ class _AdminAppState extends State<AdminApp> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
+                final FirebaseFirestore firestore = FirebaseFirestore.instance;
                 deleteClientData(index);
+                try {
+                  await firestore.collection('users').doc(userIDs).delete();
+                  ScaffoldMessenger.of(context)
+                      .showSnackBar(const SnackBar(content: Text("User deleted")));
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Failed to delete user: $e")));
+                }
                 Navigator.of(context).pop();
               },
               child: const Text('Yes'),
@@ -319,40 +338,41 @@ class _AdminAppState extends State<AdminApp> {
       body: ListView.builder(
         itemCount: clientsData.length,
         itemBuilder: (context, index) {
-           // Parse the expiry date from the stored data
-        DateTime? expiryDate = clientsData[index]['expiryDate'] != null
-            ? DateTime.parse(clientsData[index]['expiryDate'])
-            : null;
+          // Parse the expiry date from the stored data
+          DateTime? expiryDate = clientsData[index]['expiryDate'] != null
+              ? DateTime.parse(clientsData[index]['expiryDate'])
+              : null;
 
-        // Calculate the days remaining if expiryDate exists
-        String expiryStatus;
-        if (expiryDate != null) {
-          int daysRemaining = expiryDate.difference(DateTime.now()).inDays;
+          // Calculate the days remaining if expiryDate exists
+          String expiryStatus;
+          if (expiryDate != null) {
+            int daysRemaining = expiryDate.difference(DateTime.now()).inDays;
 
-          if (daysRemaining < 0) {
-            expiryStatus = 'Audio expired';
-          } else if (daysRemaining == 0) {
-            expiryStatus = 'Audio expires today';
+            if (daysRemaining < 0) {
+              expiryStatus = 'Audio expired';
+            } else if (daysRemaining == 0) {
+              expiryStatus = 'Audio expires today';
+            } else {
+              expiryStatus = 'Days left: $daysRemaining';
+            }
           } else {
-            expiryStatus = 'Days left: $daysRemaining';
+            expiryStatus = 'No expiry date set';
           }
-        } else {
-          expiryStatus = 'No expiry date set';
-        }
           return Card(
             child: ListTile(
               title: Text('Name: ${clientsData[index]['name']}'),
-              subtitle: Text('User ID: ${clientsData[index]['userId']}\n$expiryStatus'),
+              subtitle: Text(
+                  'User ID: ${clientsData[index]['userId']}\n$expiryStatus'),
               trailing: IconButton(
                 icon: const Icon(Icons.delete, color: Colors.red),
                 onPressed: () {
                   _showDeleteConfirmationDialog(index);
-                  
+                  userIDs = clientsData[index]['userId'];
                 },
               ),
               onTap: () {
                 _showClientDetailsPage(index);
-                userIDs=clientsData[index]['userId'];
+                userIDs = clientsData[index]['userId'];
               },
             ),
           );
