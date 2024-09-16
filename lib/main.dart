@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart'; // For date formatting
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(MyApp());
 }
 
@@ -23,6 +27,7 @@ class AdminApp extends StatefulWidget {
 
 class _AdminAppState extends State<AdminApp> {
   List<Map<String, dynamic>> clientsData = [];
+  late String userIDs;
 
   @override
   void initState() {
@@ -46,16 +51,12 @@ class _AdminAppState extends State<AdminApp> {
   // Save client data to SharedPreferences
   Future<void> saveClientData(String name, String userId) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+
     setState(() {
       clientsData.add({
         'name': name,
         'userId': userId,
-        'links': {
-          'morning': '',
-          'afternoon': '',
-          'evening': '',
-          'night': ''
-        },
+        'links': {'morning': '', 'afternoon': '', 'evening': '', 'night': ''},
         'expiryDate': null,
       });
       List<String> clientDataList =
@@ -68,6 +69,7 @@ class _AdminAppState extends State<AdminApp> {
   Future<void> updateClientData(
       int index, Map<String, String> links, DateTime expiryDate) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+
     setState(() {
       clientsData[index]['links'] = links;
       clientsData[index]['expiryDate'] = expiryDate.toIso8601String();
@@ -112,6 +114,7 @@ class _AdminAppState extends State<AdminApp> {
                 String clientName = nameController.text;
                 String userId = userIdController.text;
                 if (clientName.isNotEmpty && userId.isNotEmpty) {
+                  userIDs=userId;
                   saveClientData(clientName, userId);
                   Navigator.of(context).pop();
                 }
@@ -140,7 +143,9 @@ class _AdminAppState extends State<AdminApp> {
           builder: (context, setState) {
             return Padding(
               padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).viewInsets.bottom, // Adjust for the keyboard
+                bottom: MediaQuery.of(context)
+                    .viewInsets
+                    .bottom, // Adjust for the keyboard
               ),
               child: SingleChildScrollView(
                 child: Padding(
@@ -165,14 +170,15 @@ class _AdminAppState extends State<AdminApp> {
                       ),
                       TextField(
                         controller: nightController,
-                        decoration: const InputDecoration(labelText: 'Night Link'),
+                        decoration:
+                            const InputDecoration(labelText: 'Night Link'),
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       ListTile(
                         title: Text(expiryDate == null
                             ? 'Select Expiry Date'
                             : DateFormat('yyyy-MM-dd').format(expiryDate!)),
-                        trailing: Icon(Icons.calendar_today),
+                        trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
                           DateTime? picked = await showDatePicker(
                             context: context,
@@ -188,23 +194,47 @@ class _AdminAppState extends State<AdminApp> {
                         },
                       ),
                       ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
+                          final FirebaseFirestore firestore =
+                              FirebaseFirestore.instance;
                           Map<String, String> links = {
                             'morning': morningController.text,
                             'afternoon': afternoonController.text,
                             'evening': eveningController.text,
                             'night': nightController.text,
                           };
+
                           if (expiryDate != null) {
                             updateClientData(index, links, expiryDate!);
+                            try {
+                              await firestore
+                                  .collection('users')
+                                  .doc(userIDs)
+                                  .set({
+                                'morning': morningController.text,
+                            'afternoon': afternoonController.text,
+                            'evening': eveningController.text,
+                            'night': nightController.text,
+                                'expiry_date': expiryDate,
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Data saved")));
+                              
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                      content:
+                                          Text("Failed to save data: $e")));
+                            }
                             Navigator.of(context).pop();
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            ScaffoldMessenger.of(context)
+                                .showSnackBar(const SnackBar(
                               content: Text("Please select an expiry date."),
                             ));
                           }
                         },
-                        child: Text('Save'),
+                        child: const Text('Save'),
                       ),
                     ],
                   ),

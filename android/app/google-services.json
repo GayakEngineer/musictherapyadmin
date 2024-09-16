@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "12683280212",
+    "project_id": "musictherapy-8c57e",
+    "storage_bucket": "musictherapy-8c57e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12683280212:android:f019ca69a7430973e992c1",
+        "android_client_info": {
+          "package_name": "com.example.musictherapyadmin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQrAktaUaFRbDU1RrdZAMjGowbadaoaR8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:12683280212:android:c55824018af1c6f7e992c1",
+        "android_client_info": {
+          "package_name": "com.example.musictherapyclient"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQrAktaUaFRbDU1RrdZAMjGowbadaoaR8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
